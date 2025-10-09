@@ -1,0 +1,11 @@
+[package]
+name = "voice_direction_finder"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cpal = "0.16.0"
+eframe = "0.32.3"
+egui-plotter = "0.6.0"
+plotters = "0.3.7"
+rustfft = "6.4.1"
