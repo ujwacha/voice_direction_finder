@@ -1,2 +1,4 @@
 /target/
 /Cargo.toml~
+/error_file.txt
+src/audio.rs~

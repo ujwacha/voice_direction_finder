@@ -4,6 +4,7 @@ use egui_plotter::EguiBackend;
 use plotters::prelude::*;
 use std::collections::VecDeque;
 use std::sync::mpsc::Receiver;
+use voice_direction_finder::angle_wrap_f32;
 
 pub struct Application {
     right_rx: Receiver<Vec<(f32, f32)>>,
@@ -12,6 +13,7 @@ pub struct Application {
     left_cfar_rx: Receiver<Vec<(f32, f32)>>,
     phase_rx: Receiver<(f32, f32)>,
     phase_queue: VecDeque<(f32, f32)>,
+    cross_correlation_rx: Receiver<Vec<(f32, f32)>>,
     sample_rate: u32,
 }
 
@@ -23,6 +25,7 @@ impl Application {
         right_cfar_rx: Receiver<Vec<(f32, f32)>>,
         left_cfar_rx: Receiver<Vec<(f32, f32)>>,
         phase_rx: Receiver<(f32, f32)>,
+        cross_correlation_rx: Receiver<Vec<(f32, f32)>>,
         sample_rate: &u32,
     ) -> Self {
         let context = &cc.egui_ctx;
@@ -35,6 +38,7 @@ impl Application {
             left_cfar_rx,
             phase_rx,
             phase_queue: VecDeque::new(),
+            cross_correlation_rx: cross_correlation_rx,
             sample_rate: *sample_rate,
         }
     }
@@ -54,6 +58,7 @@ impl eframe::App for Application {
             && let Ok(left) = self.left_rx.recv()
             && let Ok(left_cfar) = self.left_cfar_rx.recv()
             && let Ok(right_cfar) = self.right_cfar_rx.recv()
+            && let Ok(cross_correlation) = self.cross_correlation_rx.recv()
             && let Ok(phases) = self.phase_rx.recv()
         {
             // make values
@@ -63,6 +68,12 @@ impl eframe::App for Application {
             self.add_element_in_queue(phases);
 
             let (high, _) = left.last().unwrap();
+            let (high_cross, _) = cross_correlation.last().unwrap();
+            let max_cross = cross_correlation
+                .iter()
+                .map(|(_x, y)| y)
+                .max_by(|a, b| a.total_cmp(b))
+                .unwrap();
 
             egui::CentralPanel::default().show(ctx, |ui| {
                 // Top panel for Left microphone
@@ -163,45 +174,52 @@ impl eframe::App for Application {
                                 .margin(8)
                                 .x_label_area_size(35)
                                 .y_label_area_size(45)
-                                .build_cartesian_2d(0.0f32..150.0f32, -6.5f32..6.5f32)
+                                .build_cartesian_2d(0.0f32..*high_cross, -*max_cross..*max_cross)
                                 .unwrap();
 
                             chart
                                 .configure_mesh()
-                                .x_desc("Frequency (Hz)")
-                                .y_desc("Magnitude (dB)")
+                                .x_desc("Time ")
+                                .y_desc("Cross Correlation")
                                 .label_style(("sans-serif", 13, &WHITE))
                                 .axis_style(&RGBColor(150, 150, 150))
                                 .draw()
                                 .unwrap();
 
-                            let phase_left = self
-                                .phase_queue
-                                .iter()
-                                .map(|(x, _y)| x)
-                                .enumerate()
-                                .map(|(x, y)| (x as f32, *y));
-
                             chart
                                 .draw_series(LineSeries::new(
-                                    phase_left,
+                                    cross_correlation.iter().cloned(),
                                     &RGBColor(255, 80, 80).mix(0.7),
                                 ))
                                 .unwrap();
 
-                            let phase_right = self
-                                .phase_queue
-                                .iter()
-                                .map(|(_x, y)| y)
-                                .enumerate()
-                                .map(|(x, y)| (x as f32, *y));
+                            // let phase_left = self
+                            //     .phase_queue
+                            //     .iter()
+                            //     .map(|(x, _y)| angle_wrap_f32(*x))
+                            //     .enumerate()
+                            //     .map(|(x, y)| (x as f32, y));
 
-                            chart
-                                .draw_series(LineSeries::new(
-                                    phase_right,
-                                    &RGBColor(80, 150, 255).mix(0.7),
-                                ))
-                                .unwrap();
+                            // chart
+                            //     .draw_series(LineSeries::new(
+                            //         phase_left,
+                            //         &RGBColor(255, 80, 80).mix(0.7),
+                            //     ))
+                            //     .unwrap();
+
+                            // let phase_right = self
+                            //     .phase_queue
+                            //     .iter()
+                            //     .map(|(_x, y)| angle_wrap_f32(*y))
+                            //     .enumerate()
+                            //     .map(|(x, y)| (x as f32, y));
+
+                            // chart
+                            //     .draw_series(LineSeries::new(
+                            //         phase_right,
+                            //         &RGBColor(80, 150, 255).mix(0.7),
+                            //     ))
+                            //     .unwrap();
 
                             root.present().unwrap();
                         });
@@ -212,19 +230,19 @@ impl eframe::App for Application {
                             let root = EguiBackend::new(ui).into_drawing_area();
                             root.fill(&RGBColor(35, 35, 40)).unwrap();
 
-                            // let mut chart = ChartBuilder::on(&root)
-                            //     .margin(8)
-                            //     .x_label_area_size(35)
-                            //     .y_label_area_size(45)
-                            //     .build_cartesian_2d(-1.0f32..1.0f32, -1.0f32..1.0f32)
-                            //     .unwrap();
-
                             let mut chart = ChartBuilder::on(&root)
                                 .margin(8)
                                 .x_label_area_size(35)
                                 .y_label_area_size(45)
-                                .build_cartesian_2d(0.0f32..150.0f32, -7.5f32..7.5f32)
+                                .build_cartesian_2d(-1.0f32..1.0f32, -1.0f32..1.0f32)
                                 .unwrap();
+
+                            // let mut chart = ChartBuilder::on(&root)
+                            //     .margin(8)
+                            //     .x_label_area_size(35)
+                            //     .y_label_area_size(45)
+                            //     .build_cartesian_2d(0.0f32..150.0f32, -3.5f32..3.5f32)
+                            //     .unwrap();
 
                             chart
                                 .configure_mesh()
@@ -235,16 +253,24 @@ impl eframe::App for Application {
                                 .draw()
                                 .unwrap();
 
-                            let phase_shift = self
-                                .phase_queue
-                                .iter()
-                                .map(|(x, y)| x - y)
-                                .enumerate()
-                                .map(|(x, y)| (x as f32, y));
+                            // let phase_shift = self
+                            //     .phase_queue
+                            //     .iter()
+                            //     .map(|(x, y)| angle_wrap_f32(y - x))
+                            //     .enumerate()
+                            //     .map(|(x, y)| (x as f32, y));
+
+                            let (_, time_delay) = self.phase_queue.pop_back().unwrap();
+                            let angle = (time_delay * 343.0 / 0.055).asin();
+
+                            let mut vec: Vec<(f32, f32)> = Vec::new();
+                            vec.push((0.0, 0.0));
+                            vec.push((angle.sin(), angle.cos()));
 
                             chart
                                 .draw_series(LineSeries::new(
-                                    phase_shift,
+                                    //phase_shift,
+                                    vec.iter().cloned(),
                                     &RGBColor(80, 150, 255).mix(0.7),
                                 ))
                                 .unwrap();

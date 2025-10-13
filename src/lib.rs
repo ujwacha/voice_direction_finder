@@ -50,3 +50,18 @@ pub fn filter_with_cfar(
         })
         .collect()
 }
+
+/// Version that works with f32 for better performance when precision requirements are lower
+pub fn angle_wrap_f32(angle: f32) -> f32 {
+    use std::f32::consts::PI;
+
+    let mut wrapped = angle % (2.0 * PI);
+
+    if wrapped >= PI {
+        wrapped -= 2.0 * PI;
+    } else if wrapped < -PI {
+        wrapped += 2.0 * PI;
+    }
+
+    wrapped
+}

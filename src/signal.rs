@@ -20,6 +20,18 @@ impl SignalProcessor {
         return array.clone();
     }
 
+    pub fn ifft(&mut self, array: &mut Vec<Complex32>) -> Vec<Complex32> {
+        let len = array.len();
+        let fft = self.planner.plan_fft_inverse(array.len());
+        fft.process(array);
+        // normalize
+        for i in 0..array.len() {
+            // I can't do that with iter
+            array[i] /= len as f32;
+        }
+        return array.clone();
+    }
+
     pub fn complex_fft_to_db_magnitude(&mut self, array: &Vec<Complex32>) -> Vec<(f32, f32)> {
         let resolution = self.get_fft_frequency_resolution(array.len());
         array
@@ -31,6 +43,24 @@ impl SignalProcessor {
                     (x.re.powi(2) + x.im.powi(2)).sqrt().log10() * 20.0f32,
                 )
             })
+            .collect()
+    }
+
+    pub fn complex_signal_to_magnitude(&mut self, array: &Vec<Complex32>) -> Vec<(f32, f32)> {
+        let resolution = self.get_time_resolution();
+        array
+            .iter()
+            .enumerate()
+            .map(|(i, x)| (i as f32 * resolution, (x.re.powi(2) + x.im.powi(2)).sqrt()))
+            .collect()
+    }
+
+    pub fn complex_signal_to_real_only(&mut self, array: &Vec<Complex32>) -> Vec<(f32, f32)> {
+        let resolution = self.get_time_resolution();
+        array
+            .iter()
+            .enumerate()
+            .map(|(i, x)| (i as f32 * resolution, x.re))
             .collect()
     }
 
@@ -86,11 +116,25 @@ impl SignalProcessor {
             .collect()
     }
 
+    pub fn add_time_resolution(&self, array: Vec<f32>) -> Vec<(f32, f32)> {
+        let resolution = self.get_time_resolution();
+
+        array
+            .iter()
+            .enumerate()
+            .map(|(x, y)| (x as f32 * resolution, *y))
+            .collect()
+    }
+
     pub fn calculate_phase_radian(z: &Complex32) -> f32 {
         z.im.atan2(z.re)
     }
 
     pub fn get_fft_frequency_resolution(&self, fft_len: usize) -> f32 {
         self.samples_rate as f32 / (fft_len as f32)
+    }
+
+    pub fn get_time_resolution(&self) -> f32 {
+        1.0f32 / self.samples_rate as f32
     }
 }
