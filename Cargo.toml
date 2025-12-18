@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+butterworth = "0.1.0"
 cpal = "0.16.0"
 eframe = "0.32.3"
 egui-plotter = "0.6.0"

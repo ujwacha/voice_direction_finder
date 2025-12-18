@@ -47,7 +47,7 @@ impl StreamEncapsulate {
             .expect("No Default Input Configuration")
             .config();
 
-        config.buffer_size = BufferSize::Fixed(80000);
+        // config.buffer_size = BufferSize::Fixed(80000);
 
         // dbg!(host.input_devices());
 

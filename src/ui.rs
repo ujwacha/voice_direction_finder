@@ -1,3 +1,4 @@
+use butterworth::Filter;
 use eframe::egui;
 use eframe::egui::{Color32, Visuals};
 use egui_plotter::EguiBackend;
@@ -46,7 +47,7 @@ impl Application {
     fn add_element_in_queue(&mut self, phases: (f32, f32)) {
         self.phase_queue.push_back(phases);
 
-        if self.phase_queue.len() > 120 {
+        if self.phase_queue.len() > 1200 {
             self.phase_queue.pop_front();
         }
     }
@@ -69,6 +70,7 @@ impl eframe::App for Application {
 
             let (high, _) = left.last().unwrap();
             let (high_cross, _) = cross_correlation.last().unwrap();
+            let (low_cross, _) = cross_correlation.get(0).unwrap();
             let max_cross = cross_correlation
                 .iter()
                 .map(|(_x, y)| y)
@@ -78,7 +80,7 @@ impl eframe::App for Application {
             egui::CentralPanel::default().show(ctx, |ui| {
                 // Top panel for Left microphone
                 egui::TopBottomPanel::top("left_mic")
-                    .exact_height(ui.available_height() * 0.33)
+                    .exact_height(ui.available_height() * 0.2)
                     .show_inside(ui, |ui| {
                         ui.add_space(3.0);
 
@@ -124,40 +126,106 @@ impl eframe::App for Application {
                     .show_inside(ui, |ui| {
                         ui.add_space(3.0);
 
-                        let root = EguiBackend::new(ui).into_drawing_area();
-                        root.fill(&RGBColor(35, 35, 40)).unwrap();
+                        egui::SidePanel::left("right_panel_mic")
+                            .exact_width(ui.available_width() * 0.5)
+                            .show_inside(ui, |ui| {
+                                let root = EguiBackend::new(ui).into_drawing_area();
+                                root.fill(&RGBColor(35, 35, 40)).unwrap();
 
-                        let mut chart2 = ChartBuilder::on(&root)
-                            .margin(8)
-                            .x_label_area_size(35)
-                            .y_label_area_size(45)
-                            .build_cartesian_2d(0.0f32..*high, 0f32..60f32)
-                            .unwrap();
+                                let mut chart2 = ChartBuilder::on(&root)
+                                    .margin(8)
+                                    .x_label_area_size(35)
+                                    .y_label_area_size(45)
+                                    .build_cartesian_2d(0.0f32..*high, 0f32..60f32)
+                                    .unwrap();
 
-                        chart2
-                            .configure_mesh()
-                            .x_desc("Frequency (Hz)")
-                            .y_desc("Magnitude (dB)")
-                            .label_style(("sans-serif", 13, &WHITE))
-                            .axis_style(&RGBColor(150, 150, 150))
-                            .draw()
-                            .unwrap();
+                                chart2
+                                    .configure_mesh()
+                                    .x_desc("Frequency (Hz)")
+                                    .y_desc("Magnitude (dB)")
+                                    .label_style(("sans-serif", 13, &WHITE))
+                                    .axis_style(&RGBColor(150, 150, 150))
+                                    .draw()
+                                    .unwrap();
 
-                        chart2
-                            .draw_series(LineSeries::new(
-                                right.iter().cloned(),
-                                &RGBColor(80, 150, 255),
-                            ))
-                            .unwrap();
+                                chart2
+                                    .draw_series(LineSeries::new(
+                                        right.iter().cloned(),
+                                        &RGBColor(80, 150, 255),
+                                    ))
+                                    .unwrap();
 
-                        chart2
-                            .draw_series(LineSeries::new(
-                                right_cfar.iter().cloned(),
-                                &RGBColor(148, 255, 139),
-                            ))
-                            .unwrap();
+                                chart2
+                                    .draw_series(LineSeries::new(
+                                        right_cfar.iter().cloned(),
+                                        &RGBColor(148, 255, 139),
+                                    ))
+                                    .unwrap();
 
-                        root.present().unwrap();
+                                root.present().unwrap();
+                            });
+
+                        egui::SidePanel::left("angle_panel_mic")
+                            .exact_width(ui.available_width())
+                            .show_inside(ui, |ui| {
+                                let root = EguiBackend::new(ui).into_drawing_area();
+                                root.fill(&RGBColor(35, 35, 40)).unwrap();
+
+                                let to_plot: Vec<f64> = self
+                                    .phase_queue
+                                    .iter()
+                                    .map(|(_, b)| (*b * 343.0 / 0.055).asin() as f64)
+                                    .collect();
+
+                                dbg!(self.sample_rate);
+
+                                let filter = Filter::new(
+                                    1,
+                                    self.sample_rate as f64,
+                                    butterworth::Cutoff::LowPass(1000.0),
+                                )
+                                .unwrap();
+
+                                if to_plot.len() < 10 {
+                                    return;
+                                }
+
+                                let to_plot = filter.bidirectional(&to_plot).unwrap();
+
+                                let to_plot: Vec<(f32, f32)> = to_plot
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(a, b)| (a as f32, *b as f32))
+                                    .collect();
+
+                                let mut chart2 = ChartBuilder::on(&root)
+                                    .margin(8)
+                                    .x_label_area_size(35)
+                                    .y_label_area_size(45)
+                                    .build_cartesian_2d(
+                                        0.0f32..to_plot.len() as f32,
+                                        -1.5f32..1.5f32,
+                                    )
+                                    .unwrap();
+
+                                chart2
+                                    .configure_mesh()
+                                    .x_desc("time")
+                                    .y_desc("angle")
+                                    .label_style(("sans-serif", 13, &WHITE))
+                                    .axis_style(&RGBColor(150, 150, 150))
+                                    .draw()
+                                    .unwrap();
+
+                                chart2
+                                    .draw_series(LineSeries::new(
+                                        to_plot.iter().cloned(),
+                                        &RGBColor(80, 150, 255),
+                                    ))
+                                    .unwrap();
+
+                                root.present().unwrap();
+                            });
                     });
 
                 // Middle panel - Combined view
@@ -174,7 +242,10 @@ impl eframe::App for Application {
                                 .margin(8)
                                 .x_label_area_size(35)
                                 .y_label_area_size(45)
-                                .build_cartesian_2d(0.0f32..*high_cross, -*max_cross..*max_cross)
+                                .build_cartesian_2d(
+                                    *low_cross..*high_cross,
+                                    -*max_cross..*max_cross,
+                                )
                                 .unwrap();
 
                             chart
@@ -193,34 +264,6 @@ impl eframe::App for Application {
                                 ))
                                 .unwrap();
 
-                            // let phase_left = self
-                            //     .phase_queue
-                            //     .iter()
-                            //     .map(|(x, _y)| angle_wrap_f32(*x))
-                            //     .enumerate()
-                            //     .map(|(x, y)| (x as f32, y));
-
-                            // chart
-                            //     .draw_series(LineSeries::new(
-                            //         phase_left,
-                            //         &RGBColor(255, 80, 80).mix(0.7),
-                            //     ))
-                            //     .unwrap();
-
-                            // let phase_right = self
-                            //     .phase_queue
-                            //     .iter()
-                            //     .map(|(_x, y)| angle_wrap_f32(*y))
-                            //     .enumerate()
-                            //     .map(|(x, y)| (x as f32, y));
-
-                            // chart
-                            //     .draw_series(LineSeries::new(
-                            //         phase_right,
-                            //         &RGBColor(80, 150, 255).mix(0.7),
-                            //     ))
-                            //     .unwrap();
-
                             root.present().unwrap();
                         });
 
@@ -237,13 +280,6 @@ impl eframe::App for Application {
                                 .build_cartesian_2d(-1.0f32..1.0f32, -1.0f32..1.0f32)
                                 .unwrap();
 
-                            // let mut chart = ChartBuilder::on(&root)
-                            //     .margin(8)
-                            //     .x_label_area_size(35)
-                            //     .y_label_area_size(45)
-                            //     .build_cartesian_2d(0.0f32..150.0f32, -3.5f32..3.5f32)
-                            //     .unwrap();
-
                             chart
                                 .configure_mesh()
                                 .x_desc("X")
@@ -253,19 +289,15 @@ impl eframe::App for Application {
                                 .draw()
                                 .unwrap();
 
-                            // let phase_shift = self
-                            //     .phase_queue
-                            //     .iter()
-                            //     .map(|(x, y)| angle_wrap_f32(y - x))
-                            //     .enumerate()
-                            //     .map(|(x, y)| (x as f32, y));
-
-                            let (_, time_delay) = self.phase_queue.pop_back().unwrap();
+                            let (_, time_delay) =
+                                self.phase_queue.get(self.phase_queue.len() - 1).unwrap();
                             let angle = (time_delay * 343.0 / 0.055).asin();
+
+                            // println!("angle: {}", angle * 180.0 / 3.1415);
 
                             let mut vec: Vec<(f32, f32)> = Vec::new();
                             vec.push((0.0, 0.0));
-                            vec.push((angle.sin(), angle.cos()));
+                            vec.push((angle.sin(), -angle.cos()));
 
                             chart
                                 .draw_series(LineSeries::new(

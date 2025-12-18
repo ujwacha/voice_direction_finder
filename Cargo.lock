@@ -490,6 +490,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46c5e41b57b8bba42a04676d81cb89e9ee8e859a1a66f80a5a72e1cb76b34d43"
 
 [[package]]
+name = "butterworth"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5cbbb7f9bd55fef9fa04d086be27982f056e66a5bef324082bc38a0e634cc641"
+dependencies = [
+ "num-complex",
+ "num-traits",
+]
+
+[[package]]
 name = "bytemuck"
 version = "1.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3377,6 +3387,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 name = "voice_direction_finder"
 version = "0.1.0"
 dependencies = [
+ "butterworth",
  "cpal",
  "eframe",
  "egui-plotter",

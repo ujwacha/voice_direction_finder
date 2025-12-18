@@ -5,8 +5,8 @@ use signal::SignalProcessor;
 use std::sync::mpsc;
 use std::thread;
 use ui::Application;
-use voice_direction_finder::filter_with_cfar;
-use voice_direction_finder::find_peak_index;
+// use voice_direction_finder::filter_with_cfar;
+// use voice_direction_finder::find_peak_index;
 
 use rustfft::num_complex::Complex32;
 
@@ -21,6 +21,17 @@ fn main() -> Result<(), eframe::Error> {
     stream_encapsulate.stream.play().unwrap(); // Runs the thread
 
     let mut signal_processor = SignalProcessor::new(stream_encapsulate.samples_per_sec);
+
+    println!(
+        "The time resolution is: {}",
+        signal_processor.get_time_resolution()
+    );
+
+    let angle_resolution = (signal_processor.get_time_resolution() * 343.0 / 0.055).asin();
+    println!(
+        "angle_resolution: {} degrees",
+        angle_resolution * 180.0 / 3.1415
+    );
 
     let (app_right_tx, app_right_rx) = mpsc::sync_channel::<Vec<(f32, f32)>>(1);
     let (app_left_tx, app_left_rx) = mpsc::sync_channel::<Vec<(f32, f32)>>(1);
@@ -53,44 +64,7 @@ fn main() -> Result<(), eframe::Error> {
                 let cfar_right = SignalProcessor::cfar(&var, 10, 4, 3.5);
                 let cfar_right = signal_processor.add_frequency_resolution(cfar_right);
 
-                // let filtered_right = filter_with_cfar(&right_magnitude_plot, &cfar_right);
-                // let res_right = signal_processor.get_fft_frequency_resolution(filtered_right.len());
-                // let target_index_right =
-                //     find_peak_index((900.0, 1100.0), &filtered_right, res_right).unwrap();
-
-                // // println!("Freq: {}", target_index_right as f32 * res_right);
-
-                // let filtered_left = filter_with_cfar(&left_magnitude_plot, &cfar_left);
-                // let res_left = signal_processor.get_fft_frequency_resolution(filtered_left.len());
-                // let target_index_left =
-                //     find_peak_index((900.0, 1100.0), &filtered_left, res_left).unwrap();
-
-                // // println!("Freq: {}", target_index_left as f32 * res_left);
-                // // // let phase_right =
-
-                // let phase_right = SignalProcessor::calculate_phase_radian(
-                //     right_fft.get(target_index_right).unwrap(),
-                // );
-
-                // let phase_left = SignalProcessor::calculate_phase_radian(
-                //     left_fft.get(target_index_left).unwrap(),
-                // );
-
-                // let phase_diff = phase_left - phase_right;
-
-                // println!("({})", phase_diff);
-
-                // That phase thing didn't work, so we will find time difference through cross correlation
-
-                // let right_fft_conj = right_fft.iter().map(|x| x.conj());
-
-                // let fft_mul: Vec<Complex32> = left_fft
-                //     .iter()
-                //     .zip(right_fft_conj)
-                //     .map(|(x, y)| x * y)
-                //     .collect();
-
-                let mut fft_conj_mul: Vec<Complex32> = left_fft
+                let fft_conj_mul: Vec<Complex32> = left_fft
                     .iter()
                     .zip(right_fft.iter().map(|x| x.conj()))
                     .map(|(x, y)| x * y)
@@ -98,26 +72,22 @@ fn main() -> Result<(), eframe::Error> {
 
                 // let signal_to_send = signal_processor.add_frequency_resolution(fft_conj_mul);
 
-                let correlation = signal_processor.ifft(&mut fft_conj_mul);
+                // for gcc phat, you have to divide the magnetude to make it "unity"
+
+                let mut fft_conj_mul: Vec<Complex32> = fft_conj_mul
+                    .iter()
+                    .map(|x| x / (x.re * x.re + x.im * x.im).sqrt())
+                    .collect();
+
+                let correlation = signal_processor.ifft(&mut fft_conj_mul); // this part is gcc phat
 
                 //                let magnetude = signal_processor.complex_signal_to_magnitude(&correlation);
-                let magnetude = signal_processor.complex_signal_to_real_only(&correlation);
+                let magnetude = signal_processor.fft_time_addition(&correlation);
 
-                let (max_time, max_correlation) = magnetude.iter().take(magnetude.len() / 2).fold(
-                    (0.0, f32::NEG_INFINITY),
-                    |(max_t, max_val), &(t, val)| {
-                        if val > max_val {
-                            (t, val)
-                        } else {
-                            (max_t, max_val)
-                        }
-                    },
-                );
-
-                println!(
-                    "Max correlation: {} at time: {}",
-                    &max_correlation, &max_time
-                );
+                let (max_time, max_correlation) = signal_processor
+                    .parabolic_interpolate_peak_robust(&magnetude)
+                    .unwrap();
+                // now fit a quardratic equation to get a better number
 
                 let _ = app_right_tx.try_send(right_magnitude_plot);
                 let _ = app_left_tx.try_send(left_magnitude_plot);
@@ -131,11 +101,10 @@ fn main() -> Result<(), eframe::Error> {
         }
     });
 
-    let native_options = NativeOptions::default();
     // Blocks
     eframe::run_native(
         "AudioDir",
-        native_options,
+        NativeOptions::default(),
         Box::new(move |cc| {
             Result::Ok(Box::new(Application::new(
                 cc,
