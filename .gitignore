@@ -1,5 +1,5 @@
 /target/
-/Cargo.toml~
 /error_file.txt
-src/audio.rs~
-/src/audio.rs~~
+*~
+.direnv/
+.envrc
