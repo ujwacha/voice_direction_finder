@@ -1,10 +1,14 @@
 use audio::StreamEncapsulate;
+use butterworth::Cutoff;
+use butterworth::Filter;
 use cpal::traits::StreamTrait;
 use eframe::NativeOptions;
 use signal::SignalProcessor;
+use std::collections::VecDeque;
 use std::sync::mpsc;
 use std::thread;
 use ui::Application;
+
 // use voice_direction_finder::filter_with_cfar;
 // use voice_direction_finder::find_peak_index;
 
@@ -33,12 +37,16 @@ fn main() -> Result<(), eframe::Error> {
         angle_resolution * 180.0 / 3.1415
     );
 
+    let mut phase_queue: VecDeque<f32> = VecDeque::new();
+
+    let filter = Filter::new(2, 20000.0, Cutoff::LowPass(6000.0)).unwrap();
+
     let (app_right_tx, app_right_rx) = mpsc::sync_channel::<Vec<(f32, f32)>>(1);
     let (app_left_tx, app_left_rx) = mpsc::sync_channel::<Vec<(f32, f32)>>(1);
     let (app_left_cfar_tx, app_left_cfar_rx) = mpsc::sync_channel::<Vec<(f32, f32)>>(1);
     let (app_right_cfar_tx, app_right_cfar_rx) = mpsc::sync_channel::<Vec<(f32, f32)>>(1);
     let (cross_correlation_tx, cross_correlation_rx) = mpsc::sync_channel::<Vec<(f32, f32)>>(1);
-    let (phase_tx, phase_rx) = mpsc::sync_channel::<(f32, f32)>(1);
+    let (phase_tx, phase_rx) = mpsc::sync_channel::<VecDeque<f32>>(1);
 
     thread::spawn(move || {
         // Signal Processing Thread
@@ -84,19 +92,40 @@ fn main() -> Result<(), eframe::Error> {
                 //                let magnetude = signal_processor.complex_signal_to_magnitude(&correlation);
                 let magnetude = signal_processor.fft_time_addition(&correlation);
 
-                let (max_time, max_correlation) = signal_processor
-                    .parabolic_interpolate_peak_robust(&magnetude)
-                    .unwrap();
+                let (max_time, max_correlation) =
+                    match signal_processor.parabolic_interpolate_peak_robust(&magnetude) {
+                        Ok((a, b)) => (a, b),
+                        Err(_) => continue,
+                    };
+
                 // now fit a quardratic equation to get a better number
 
+                phase_queue.push_back(max_time);
+
+                // phase_queue.push_back((max_correlation, max_time));
+
+                if phase_queue.len() > 120 {
+                    phase_queue.pop_front();
+                }
+
+                if phase_queue.len() < 10 {
+                    continue;
+                }
+
+                let phase_queue: VecDeque<f32> = filter
+                    .bidirectional(&phase_queue.iter().map(|a| *a as f64).collect())
+                    .unwrap()
+                    .iter()
+                    .map(|a| *a as f32)
+                    .collect();
+
+                // Now implement Low Pass Filter
                 let _ = app_right_tx.try_send(right_magnitude_plot);
                 let _ = app_left_tx.try_send(left_magnitude_plot);
                 let _ = app_left_cfar_tx.try_send(cfar_left);
                 let _ = app_right_cfar_tx.try_send(cfar_right);
                 let _ = cross_correlation_tx.try_send(magnetude);
-
-                //let _ = phase_tx.try_send((phase_left, phase_right));
-                let _ = phase_tx.try_send((max_correlation, max_time));
+                let _ = phase_tx.try_send(phase_queue);
             }
         }
     });

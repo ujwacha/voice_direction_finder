@@ -1,19 +1,16 @@
-use butterworth::Filter;
 use eframe::egui;
 use eframe::egui::{Color32, Visuals};
 use egui_plotter::EguiBackend;
 use plotters::prelude::*;
 use std::collections::VecDeque;
 use std::sync::mpsc::Receiver;
-use voice_direction_finder::angle_wrap_f32;
 
 pub struct Application {
     right_rx: Receiver<Vec<(f32, f32)>>,
     left_rx: Receiver<Vec<(f32, f32)>>,
     right_cfar_rx: Receiver<Vec<(f32, f32)>>,
     left_cfar_rx: Receiver<Vec<(f32, f32)>>,
-    phase_rx: Receiver<(f32, f32)>,
-    phase_queue: VecDeque<(f32, f32)>,
+    phase_rx: Receiver<VecDeque<f32>>,
     cross_correlation_rx: Receiver<Vec<(f32, f32)>>,
     sample_rate: u32,
 }
@@ -25,7 +22,7 @@ impl Application {
         left_rx: Receiver<Vec<(f32, f32)>>,
         right_cfar_rx: Receiver<Vec<(f32, f32)>>,
         left_cfar_rx: Receiver<Vec<(f32, f32)>>,
-        phase_rx: Receiver<(f32, f32)>,
+        phase_rx: Receiver<VecDeque<f32>>,
         cross_correlation_rx: Receiver<Vec<(f32, f32)>>,
         sample_rate: &u32,
     ) -> Self {
@@ -38,17 +35,8 @@ impl Application {
             right_cfar_rx,
             left_cfar_rx,
             phase_rx,
-            phase_queue: VecDeque::new(),
             cross_correlation_rx: cross_correlation_rx,
             sample_rate: *sample_rate,
-        }
-    }
-
-    fn add_element_in_queue(&mut self, phases: (f32, f32)) {
-        self.phase_queue.push_back(phases);
-
-        if self.phase_queue.len() > 120 {
-            self.phase_queue.pop_front();
         }
     }
 }
@@ -62,11 +50,7 @@ impl eframe::App for Application {
             && let Ok(cross_correlation) = self.cross_correlation_rx.recv()
             && let Ok(phases) = self.phase_rx.recv()
         {
-            // make values
-            //            let resolution = self.get_fft_frequency_resolution(right.len());
-            //           let resolution = self.get_fft_frequency_resolution(left.len());
-
-            self.add_element_in_queue(phases);
+            // self.add_element_in_queue(phases);
 
             let (high, _) = left.last().unwrap();
             let (high_cross, _) = cross_correlation.last().unwrap();
@@ -171,39 +155,12 @@ impl eframe::App for Application {
                                 let root = EguiBackend::new(ui).into_drawing_area();
                                 root.fill(&RGBColor(35, 35, 40)).unwrap();
 
-                                // let to_plot: Vec<f64> = self
-                                //     .phase_queue
-                                //     .iter()
-                                //     .map(|(_, b)| (b * 343.0 / 0.055).asin() as f64)
-                                //     .collect();
-
-                                // let filter = Filter::new(
-                                //     // filter because the plot is very janky
-                                //     1,
-                                //     100.0,
-                                //     butterworth::Cutoff::LowPass(30.0),
-                                // )
-                                // .unwrap();
-
-                                // if to_plot.len() < 10 {
-                                //     println!("to_plot.len() < 10");
-                                //     return;
-                                // }
-                                // let to_plot = filter.bidirectional(&to_plot).unwrap();
-
-                                let to_plot: Vec<(f32, f32)> = self
-                                    .phase_queue
+                                let to_plot: Vec<(f32, f32)> = phases
                                     .iter()
-                                    .map(|(_, b)| (b * 343.0 / 0.055).asin())
+                                    .map(|b| (b * 343.0 / 0.055).asin())
                                     .enumerate()
                                     .map(|(a, b)| (a as f32, b))
                                     .collect();
-
-                                // let to_plot: Vec<(f32, f32)> = to_plot
-                                //     .iter()
-                                //     .enumerate()
-                                //     .map(|(a, b)| (a as f32, *b as f32))
-                                //     .collect();
 
                                 let mut chart2 = ChartBuilder::on(&root)
                                     .margin(8)
@@ -296,8 +253,7 @@ impl eframe::App for Application {
                                 .draw()
                                 .unwrap();
 
-                            let (_, time_delay) =
-                                self.phase_queue.get(self.phase_queue.len() - 1).unwrap();
+                            let time_delay = phases.get(phases.len() - 1).unwrap();
                             let angle = (time_delay * 343.0 / 0.055).asin();
 
                             // println!("angle: {}", angle * 180.0 / 3.1415);
