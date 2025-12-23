@@ -47,7 +47,7 @@ impl Application {
     fn add_element_in_queue(&mut self, phases: (f32, f32)) {
         self.phase_queue.push_back(phases);
 
-        if self.phase_queue.len() > 1200 {
+        if self.phase_queue.len() > 120 {
             self.phase_queue.pop_front();
         }
     }
@@ -171,32 +171,39 @@ impl eframe::App for Application {
                                 let root = EguiBackend::new(ui).into_drawing_area();
                                 root.fill(&RGBColor(35, 35, 40)).unwrap();
 
-                                let to_plot: Vec<f64> = self
+                                // let to_plot: Vec<f64> = self
+                                //     .phase_queue
+                                //     .iter()
+                                //     .map(|(_, b)| (b * 343.0 / 0.055).asin() as f64)
+                                //     .collect();
+
+                                // let filter = Filter::new(
+                                //     // filter because the plot is very janky
+                                //     1,
+                                //     100.0,
+                                //     butterworth::Cutoff::LowPass(30.0),
+                                // )
+                                // .unwrap();
+
+                                // if to_plot.len() < 10 {
+                                //     println!("to_plot.len() < 10");
+                                //     return;
+                                // }
+                                // let to_plot = filter.bidirectional(&to_plot).unwrap();
+
+                                let to_plot: Vec<(f32, f32)> = self
                                     .phase_queue
                                     .iter()
-                                    .map(|(_, b)| (*b * 343.0 / 0.055).asin() as f64)
-                                    .collect();
-
-                                dbg!(self.sample_rate);
-
-                                let filter = Filter::new(
-                                    1,
-                                    self.sample_rate as f64,
-                                    butterworth::Cutoff::LowPass(1000.0),
-                                )
-                                .unwrap();
-
-                                if to_plot.len() < 10 {
-                                    return;
-                                }
-
-                                let to_plot = filter.bidirectional(&to_plot).unwrap();
-
-                                let to_plot: Vec<(f32, f32)> = to_plot
-                                    .iter()
+                                    .map(|(_, b)| (b * 343.0 / 0.055).asin())
                                     .enumerate()
-                                    .map(|(a, b)| (a as f32, *b as f32))
+                                    .map(|(a, b)| (a as f32, b))
                                     .collect();
+
+                                // let to_plot: Vec<(f32, f32)> = to_plot
+                                //     .iter()
+                                //     .enumerate()
+                                //     .map(|(a, b)| (a as f32, *b as f32))
+                                //     .collect();
 
                                 let mut chart2 = ChartBuilder::on(&root)
                                     .margin(8)
