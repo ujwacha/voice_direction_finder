@@ -84,9 +84,12 @@ fn main() -> Result<(), eframe::Error> {
                 //                let magnetude = signal_processor.complex_signal_to_magnitude(&correlation);
                 let magnetude = signal_processor.fft_time_addition(&correlation);
 
-                let (max_time, max_correlation) = signal_processor
-                    .parabolic_interpolate_peak_robust(&magnetude)
-                    .unwrap();
+                let (max_time, max_correlation) =
+                    match signal_processor.parabolic_interpolate_peak_robust(&magnetude) {
+                        Ok((a, b)) => (a, b),
+                        Err(_) => continue,
+                    };
+
                 // now fit a quardratic equation to get a better number
 
                 let _ = app_right_tx.try_send(right_magnitude_plot);
