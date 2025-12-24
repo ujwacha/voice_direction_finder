@@ -1,3 +1,33 @@
+use std::{net::TcpStream, vec};
+use std::io::prelude::*;
+
+pub struct TCP_Client{
+    pub stream : TcpStream,
+    pub h : f64,
+    pub k : f64,
+    pub phi : f64,
+    pub del_t : f64,
+    pub timestamp: u64,
+}
+
+impl TCP_Client{
+    pub fn new(route: String) -> Self{
+        let stream = TcpStream::connect(route).expect("Cannot connect");
+        TCP_Client{ stream , h: 0.0, k: 0.0, phi: 0.0, del_t : 0.0, timestamp: 0}
+    }
+
+    pub fn send(&mut self){
+        let data_string = format!("{},{},{},{},{}\n", self.timestamp, self.h, self.k, self.phi, self.del_t);
+        self.stream.write(data_string.as_bytes()).unwrap();
+        // let mut i = 0;
+        // loop {
+        //     let data = format!("Hello{i}\n");
+        //     self.stream.write_all(data.as_bytes()).unwrap();
+        //     i += 1;
+        // }
+    }
+}
+
 pub fn find_peak_index(
     min_max_range: (f32, f32),
     fft_db_array: &Vec<(f32, f32)>,
