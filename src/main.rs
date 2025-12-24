@@ -28,10 +28,16 @@ fn main() -> Result<(), eframe::Error> {
     let mut file = File::open("params.csv").unwrap();
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
+    contents = contents.trim().to_string();
     let thing = contents
         .split(',')
-        .map(|val| val.parse::<f64>().unwrap())
+        .map(|val| {
+            println!("val: {}", val);
+            val.parse::<f64>().unwrap()
+        })
         .collect::<Vec<f64>>();
+
+    // let thing = [0.0,0.0,0.0,0.0];
 
     let h = thing[0];
     let k = thing[1];

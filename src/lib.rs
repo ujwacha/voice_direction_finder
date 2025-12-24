@@ -1,5 +1,6 @@
 use std::io::prelude::*;
 use std::{net::TcpStream, vec};
+use std::time::Duration;
 
 pub struct TCP_Client {
     pub stream: TcpStream,
@@ -14,6 +15,10 @@ pub struct TCP_Client {
 impl TCP_Client {
     pub fn new(route: String, h: f64, k: f64, phi: f64, mic_dis: f64) -> Self {
         let stream = TcpStream::connect(route).expect("Cannot connect");
+        stream.set_nodelay(true).unwrap();
+         let _ = stream.set_write_timeout(Some(Duration::from_millis(100)));
+
+
 
         TCP_Client {
             stream,
@@ -31,7 +36,8 @@ impl TCP_Client {
             "{},{},{},{},{},{}\n",
             self.timestamp, self.h, self.k, self.phi, self.mic_dis, self.del_t
         );
-        self.stream.write(data_string.as_bytes()).unwrap();
+        self.stream.write_all(data_string.as_bytes()).unwrap();
+        self.stream.flush().unwrap();
         // let mut i = 0;
         // loop {
         //     let data = format!("Hello{i}\n");
