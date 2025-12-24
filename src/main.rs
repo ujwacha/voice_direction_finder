@@ -8,6 +8,8 @@ use std::collections::VecDeque;
 use std::sync::mpsc;
 use std::thread;
 use ui::Application;
+use voice_direction_finder::TCP_Client;
+use std::time::SystemTime;
 
 // use voice_direction_finder::filter_with_cfar;
 // use voice_direction_finder::find_peak_index;
@@ -18,6 +20,9 @@ mod audio;
 mod signal;
 mod ui;
 
+const h : f64 = 0.0;
+const k : f64 = 0.0;
+const phi : f64 = 0.0;
 const DEVICE: &str = "default";
 
 fn main() -> Result<(), eframe::Error> {
@@ -47,6 +52,21 @@ fn main() -> Result<(), eframe::Error> {
     let (app_right_cfar_tx, app_right_cfar_rx) = mpsc::sync_channel::<Vec<(f32, f32)>>(1);
     let (cross_correlation_tx, cross_correlation_rx) = mpsc::sync_channel::<Vec<(f32, f32)>>(1);
     let (phase_tx, phase_rx) = mpsc::sync_channel::<VecDeque<f32>>(1);
+    let (socket_tx, socket_rx) = mpsc::sync_channel::<f64>(1);
+
+    let mut prev_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
+
+    thread::spawn(move || {
+        let mut client = TCP_Client::new(String::from("192.168.9.172:6060"));
+        loop {
+            if let Ok(val) = socket_rx.recv() {
+                client.del_t = val;
+                client.timestamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+                println!("{}, {}", val, client.timestamp);
+                client.send();
+            } 
+        }
+    });
 
     thread::spawn(move || {
         // Signal Processing Thread
@@ -118,6 +138,8 @@ fn main() -> Result<(), eframe::Error> {
                     .iter()
                     .map(|a| *a as f32)
                     .collect();
+
+                let _ = socket_tx.try_send(*phase_queue.get(phase_queue.len() - 1).unwrap() as f64);
 
                 // Now implement Low Pass Filter
                 let _ = app_right_tx.try_send(right_magnitude_plot);
