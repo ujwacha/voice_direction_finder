@@ -1,23 +1,36 @@
-use std::{net::TcpStream, vec};
 use std::io::prelude::*;
+use std::{net::TcpStream, vec};
 
-pub struct TCP_Client{
-    pub stream : TcpStream,
-    pub h : f64,
-    pub k : f64,
-    pub phi : f64,
-    pub del_t : f64,
+pub struct TCP_Client {
+    pub stream: TcpStream,
+    pub h: f64,
+    pub k: f64,
+    pub phi: f64,
+    pub mic_dis: f64,
+    pub del_t: f64,
     pub timestamp: u64,
 }
 
-impl TCP_Client{
-    pub fn new(route: String) -> Self{
+impl TCP_Client {
+    pub fn new(route: String, h: f64, k: f64, phi: f64, mic_dis: f64) -> Self {
         let stream = TcpStream::connect(route).expect("Cannot connect");
-        TCP_Client{ stream , h: 0.0, k: 0.0, phi: 0.0, del_t : 0.0, timestamp: 0}
+
+        TCP_Client {
+            stream,
+            h,
+            k,
+            phi,
+            mic_dis,
+            del_t: 0.0,
+            timestamp: 0,
+        }
     }
 
-    pub fn send(&mut self){
-        let data_string = format!("{},{},{},{},{}\n", self.timestamp, self.h, self.k, self.phi, self.del_t);
+    pub fn send(&mut self) {
+        let data_string = format!(
+            "{},{},{},{},{},{}\n",
+            self.timestamp, self.h, self.k, self.phi, self.mic_dis, self.del_t
+        );
         self.stream.write(data_string.as_bytes()).unwrap();
         // let mut i = 0;
         // loop {

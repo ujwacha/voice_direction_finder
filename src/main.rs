@@ -5,11 +5,13 @@ use cpal::traits::StreamTrait;
 use eframe::NativeOptions;
 use signal::SignalProcessor;
 use std::collections::VecDeque;
+use std::fs::File;
+use std::io::Read;
 use std::sync::mpsc;
 use std::thread;
+use std::time::SystemTime;
 use ui::Application;
 use voice_direction_finder::TCP_Client;
-use std::time::SystemTime;
 
 // use voice_direction_finder::filter_with_cfar;
 // use voice_direction_finder::find_peak_index;
@@ -20,12 +22,22 @@ mod audio;
 mod signal;
 mod ui;
 
-const h : f64 = 0.0;
-const k : f64 = 0.0;
-const phi : f64 = 0.0;
 const DEVICE: &str = "default";
 
 fn main() -> Result<(), eframe::Error> {
+    let mut file = File::open("params.csv").unwrap();
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap();
+    let thing = contents
+        .split(',')
+        .map(|val| val.parse::<f64>().unwrap())
+        .collect::<Vec<f64>>();
+
+    let h = thing[0];
+    let k = thing[1];
+    let phi = thing[2];
+    let mic_dis = thing[3];
+
     let stream_encapsulate = StreamEncapsulate::new(DEVICE); // Spawned New Thread Here
     stream_encapsulate.stream.play().unwrap(); // Runs the thread
 
@@ -54,17 +66,21 @@ fn main() -> Result<(), eframe::Error> {
     let (phase_tx, phase_rx) = mpsc::sync_channel::<VecDeque<f32>>(1);
     let (socket_tx, socket_rx) = mpsc::sync_channel::<f64>(1);
 
-    let mut prev_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
+    // let mut prev_time = SystemTime::now()
+    //     .duration_since(SystemTime::UNIX_EPOCH)
+    //     .unwrap();
 
     thread::spawn(move || {
-        let mut client = TCP_Client::new(String::from("192.168.9.172:6060"));
+        let mut client = TCP_Client::new(String::from("192.168.9.172:6060"), h, k, phi, mic_dis);
         loop {
             if let Ok(val) = socket_rx.recv() {
                 client.del_t = val;
-                client.timestamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
-                println!("{}, {}", val, client.timestamp);
+                client.timestamp = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64;
                 client.send();
-            } 
+            }
         }
     });
 
