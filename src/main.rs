@@ -92,7 +92,7 @@ fn main() -> Result<(), eframe::Error> {
                 //                let magnetude = signal_processor.complex_signal_to_magnitude(&correlation);
                 let magnetude = signal_processor.fft_time_addition(&correlation);
 
-                let (max_time, max_correlation) =
+                let (max_time, _max_correlation) =
                     match signal_processor.parabolic_interpolate_peak_robust(&magnetude) {
                         Ok((a, b)) => (a, b),
                         Err(_) => continue,
