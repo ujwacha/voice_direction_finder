@@ -12,7 +12,6 @@ pub struct TCP_Client {
     pub mic_dis: f64,
     pub del_t: f64,
     pub timestamp: u64,
-    pub prev_timestamp: u64,
 }
 
 impl TCP_Client {
@@ -26,7 +25,6 @@ impl TCP_Client {
             mic_dis,
             del_t: 0.0,
             timestamp: 0,
-            prev_timestamp: 0,
         };
 
         client.connect();
@@ -56,13 +54,6 @@ impl TCP_Client {
             "{},{},{},{},{},{}\n",
             self.timestamp, self.h, self.k, self.phi, self.mic_dis, self.del_t
         );
-
-        if (self.timestamp - self.prev_timestamp < 100) {
-            // 10 Hz
-            return;
-        }
-
-        self.prev_timestamp = self.timestamp;
 
         if let Some(stream) = self.stream.as_mut() {
             if let Err(e) = stream
