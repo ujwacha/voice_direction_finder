@@ -1,51 +1,73 @@
 use std::io::prelude::*;
 use std::{net::TcpStream, vec};
 use std::time::Duration;
+use std::thread;
 
 pub struct TCP_Client {
-    pub stream: TcpStream,
+route: String,
+    stream: Option<TcpStream>,
     pub h: f64,
     pub k: f64,
     pub phi: f64,
     pub mic_dis: f64,
     pub del_t: f64,
-    pub timestamp: u64,
-}
+    pub timestamp: u64,}
 
 impl TCP_Client {
     pub fn new(route: String, h: f64, k: f64, phi: f64, mic_dis: f64) -> Self {
-        let stream = TcpStream::connect(route).expect("Cannot connect");
-        stream.set_nodelay(true).unwrap();
-         let _ = stream.set_write_timeout(Some(Duration::from_millis(100)));
-
-
-
-        TCP_Client {
-            stream,
+        let mut client = TCP_Client {
+            route,
+            stream: None,
             h,
             k,
             phi,
             mic_dis,
             del_t: 0.0,
             timestamp: 0,
+        };
+
+        client.connect();
+        client
+    }
+
+    fn connect(&mut self) {
+        loop {
+            match TcpStream::connect(&self.route) {
+                Ok(stream) => {
+                    let _ = stream.set_nodelay(true);
+                    let _ = stream.set_write_timeout(Some(Duration::from_millis(100)));
+                    println!("Connected to {}", self.route);
+                    self.stream = Some(stream);
+                    break;
+                }
+                Err(e) => {
+                    eprintln!("Connect failed: {e}, retrying...");
+                    thread::sleep(Duration::from_secs(1));
+                }
+            }
         }
     }
 
     pub fn send(&mut self) {
-        let data_string = format!(
+        let data = format!(
             "{},{},{},{},{},{}\n",
             self.timestamp, self.h, self.k, self.phi, self.mic_dis, self.del_t
         );
-        self.stream.write_all(data_string.as_bytes()).unwrap();
-        self.stream.flush().unwrap();
-        // let mut i = 0;
-        // loop {
-        //     let data = format!("Hello{i}\n");
-        //     self.stream.write_all(data.as_bytes()).unwrap();
-        //     i += 1;
-        // }
+
+        if let Some(stream) = self.stream.as_mut() {
+            if let Err(e) = stream.write_all(data.as_bytes())
+                .and_then(|_| stream.flush())
+            {
+                eprintln!("Send error: {e}");
+                self.stream = None; // drop broken stream
+                self.connect();     // reconnect
+            }
+        } else {
+            self.connect();
+        }
     }
 }
+
 
 pub fn find_peak_index(
     min_max_range: (f32, f32),
