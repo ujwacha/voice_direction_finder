@@ -81,6 +81,7 @@ fn main() -> Result<(), eframe::Error> {
         loop {
             if let Ok(val) = socket_rx.recv() {
                 client.del_t = val;
+                println!("{val}");
                 client.timestamp = SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .unwrap()

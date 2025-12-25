@@ -4,3 +4,4 @@
 .direnv/
 .envrc
 data*
+params.csv
