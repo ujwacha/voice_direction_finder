@@ -1,17 +1,19 @@
 use std::io::prelude::*;
-use std::{net::TcpStream, vec};
-use std::time::Duration;
 use std::thread;
+use std::time::Duration;
+use std::{net::TcpStream, vec};
 
 pub struct TCP_Client {
-route: String,
+    route: String,
     stream: Option<TcpStream>,
     pub h: f64,
     pub k: f64,
     pub phi: f64,
     pub mic_dis: f64,
     pub del_t: f64,
-    pub timestamp: u64,}
+    pub timestamp: u64,
+    pub prev_timestamp: u64,
+}
 
 impl TCP_Client {
     pub fn new(route: String, h: f64, k: f64, phi: f64, mic_dis: f64) -> Self {
@@ -24,6 +26,7 @@ impl TCP_Client {
             mic_dis,
             del_t: 0.0,
             timestamp: 0,
+            prev_timestamp: 0,
         };
 
         client.connect();
@@ -54,20 +57,27 @@ impl TCP_Client {
             self.timestamp, self.h, self.k, self.phi, self.mic_dis, self.del_t
         );
 
+        if (self.timestamp - self.prev_timestamp < 100) {
+            // 10 Hz
+            return;
+        }
+
+        self.prev_timestamp = self.timestamp;
+
         if let Some(stream) = self.stream.as_mut() {
-            if let Err(e) = stream.write_all(data.as_bytes())
+            if let Err(e) = stream
+                .write_all(data.as_bytes())
                 .and_then(|_| stream.flush())
             {
                 eprintln!("Send error: {e}");
                 self.stream = None; // drop broken stream
-                self.connect();     // reconnect
+                self.connect(); // reconnect
             }
         } else {
             self.connect();
         }
     }
 }
-
 
 pub fn find_peak_index(
     min_max_range: (f32, f32),
