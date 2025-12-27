@@ -77,7 +77,7 @@ fn main() -> Result<(), eframe::Error> {
     //     .unwrap();
 
     thread::spawn(move || {
-        let mut client = TCP_Client::new(String::from("192.168.9.172:9099"), h, k, phi, mic_dis);
+        let mut client = TCP_Client::new(String::from("10.84.222.62:9099"), h, k, phi, mic_dis);
         loop {
             if let Ok(val) = socket_rx.recv() {
                 client.del_t = val;
@@ -176,6 +176,8 @@ fn main() -> Result<(), eframe::Error> {
     });
 
     // Blocks
+    
+    
     eframe::run_native(
         "AudioDir",
         NativeOptions::default(),
