@@ -176,8 +176,7 @@ fn main() -> Result<(), eframe::Error> {
     });
 
     // Blocks
-    
-    
+
     eframe::run_native(
         "AudioDir",
         NativeOptions::default(),
