@@ -1,8 +1,8 @@
-/target/
-/error_file.txt
+target/
+error_file.txt
 *~
 .direnv/
 .envrc
 data*
-params.csv
-/sensor2.csv
+*.csv
+*.txt
