@@ -138,7 +138,7 @@ impl SignalProcessor {
         }
 
         // Find peak index
-        let (max_index, (_, max_val)) = magnetude.iter().enumerate().fold(
+        let (max_index, (_, _max_val)) = magnetude.iter().enumerate().fold(
             (0, (0.0, f32::NEG_INFINITY)),
             |(max_i, (max_t, max_v)), (i, &(t, v))| {
                 if v > max_v {

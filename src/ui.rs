@@ -1,5 +1,5 @@
 use eframe::egui;
-use eframe::egui::{Color32, Visuals};
+use eframe::egui::Visuals;
 use egui_plotter::EguiBackend;
 use plotters::prelude::*;
 use std::collections::VecDeque;
@@ -12,7 +12,6 @@ pub struct Application {
     left_cfar_rx: Receiver<Vec<(f32, f32)>>,
     phase_rx: Receiver<VecDeque<f32>>,
     cross_correlation_rx: Receiver<Vec<(f32, f32)>>,
-    sample_rate: u32,
 }
 
 impl Application {
@@ -24,7 +23,6 @@ impl Application {
         left_cfar_rx: Receiver<Vec<(f32, f32)>>,
         phase_rx: Receiver<VecDeque<f32>>,
         cross_correlation_rx: Receiver<Vec<(f32, f32)>>,
-        sample_rate: &u32,
     ) -> Self {
         let context = &cc.egui_ctx;
         context.set_visuals(Visuals::dark());
@@ -36,7 +34,6 @@ impl Application {
             left_cfar_rx,
             phase_rx,
             cross_correlation_rx: cross_correlation_rx,
-            sample_rate: *sample_rate,
         }
     }
 }

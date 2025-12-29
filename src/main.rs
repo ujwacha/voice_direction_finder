@@ -11,10 +11,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::SystemTime;
 use ui::Application;
-use voice_direction_finder::TCP_Client;
-
-// use voice_direction_finder::filter_with_cfar;
-// use voice_direction_finder::find_peak_index;
+use voice_direction_finder::TcpClient;
 
 use rustfft::num_complex::Complex32;
 
@@ -23,26 +20,27 @@ mod signal;
 mod ui;
 
 const DEVICE: &str = "default";
+const SPEED_SOUND: f64 = 343.0;
 
 fn main() -> Result<(), eframe::Error> {
     let mut file = File::open("params.csv").unwrap();
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
     contents = contents.trim().to_string();
-    let thing = contents
+    let parameter_vals = contents
         .split(',')
         .map(|val| {
             println!("val: {}", val);
-            val.parse::<f64>().unwrap()
+            val.parse::<f64>().expect("Couldn't parse {val} as a float")
         })
         .collect::<Vec<f64>>();
 
-    // let thing = [0.0,0.0,0.0,0.0];
-
-    let h = thing[0];
-    let k = thing[1];
-    let phi = thing[2];
-    let mic_dis = thing[3];
+    let h = *parameter_vals.get(0).expect("Value of h doesn't exist");
+    let k = *parameter_vals.get(1).expect("Value of k doesn't exist");
+    let phi = *parameter_vals.get(2).expect("Value of phi doesn't exist");
+    let mic_dis = *parameter_vals
+        .get(3)
+        .expect("Value of mic_dis doesn't exist");
 
     let stream_encapsulate = StreamEncapsulate::new(DEVICE); // Spawned New Thread Here
     stream_encapsulate.stream.play().unwrap(); // Runs the thread
@@ -54,10 +52,11 @@ fn main() -> Result<(), eframe::Error> {
         signal_processor.get_time_resolution()
     );
 
-    let angle_resolution = (signal_processor.get_time_resolution() * 343.0 / 0.055).asin();
+    let angle_resolution =
+        (signal_processor.get_time_resolution() * (SPEED_SOUND / mic_dis) as f32).asin();
     println!(
         "angle_resolution: {} degrees",
-        angle_resolution * 180.0 / 3.1415
+        angle_resolution * 180.0 / std::f32::consts::PI
     );
 
     let mut phase_queue: VecDeque<f32> = VecDeque::new();
@@ -77,7 +76,7 @@ fn main() -> Result<(), eframe::Error> {
     //     .unwrap();
 
     thread::spawn(move || {
-        let mut client = TCP_Client::new(String::from("10.84.222.62:9099"), h, k, phi, mic_dis);
+        let mut client = TcpClient::new(String::from("10.84.222.62:9099"), h, k, phi, mic_dis);
         loop {
             if let Ok(val) = socket_rx.recv() {
                 client.del_t = val;
@@ -189,7 +188,6 @@ fn main() -> Result<(), eframe::Error> {
                 app_left_cfar_rx,
                 phase_rx,
                 cross_correlation_rx,
-                &stream_encapsulate.samples_per_sec,
             )))
         }),
     )?;
