@@ -96,9 +96,10 @@ fn main() -> Result<(), eframe::Error> {
         loop {
             //println!("LOOPING FFT LOOP");
 
-            if let Ok(mut left_data) = stream_encapsulate.left_rx.recv()
-                && let Ok(mut right_data) = stream_encapsulate.right_rx.recv()
-            {
+            if let (Ok(mut left_data), Ok(mut right_data)) = (
+                stream_encapsulate.left_rx.recv(),
+                stream_encapsulate.right_rx.recv(),
+            ) {
                 let right_fft = signal_processor.fft(&mut right_data);
                 let right_magnitude_plot = signal_processor.complex_fft_to_db_magnitude(&right_fft);
 

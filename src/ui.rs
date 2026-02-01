@@ -43,15 +43,23 @@ impl Application {
 
 impl eframe::App for Application {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
-        if let Ok(right) = self.right_rx.recv()
-            && let Ok(left) = self.left_rx.recv()
-            && let Ok(left_cfar) = self.left_cfar_rx.recv()
-            && let Ok(right_cfar) = self.right_cfar_rx.recv()
-            && let Ok(cross_correlation) = self.cross_correlation_rx.recv()
-            && let Ok(phases) = self.phase_rx.recv()
-        {
+        // this syntax is compliant with rust 1.85
+        if let (
+            Ok(right),
+            Ok(left),
+            Ok(left_cfar),
+            Ok(right_cfar),
+            Ok(cross_correlation),
+            Ok(phases),
+        ) = (
+            self.right_rx.recv(),
+            self.left_rx.recv(),
+            self.left_cfar_rx.recv(),
+            self.right_cfar_rx.recv(),
+            self.cross_correlation_rx.recv(),
+            self.phase_rx.recv(),
+        ) {
             // self.add_element_in_queue(phases);
-
             let (high, _) = left.last().unwrap();
             let (high_cross, _) = cross_correlation.last().unwrap();
             let (low_cross, _) = cross_correlation.get(0).unwrap();
