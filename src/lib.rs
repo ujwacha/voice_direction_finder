@@ -1,9 +1,9 @@
 use std::io::prelude::*;
+use std::net::TcpStream;
 use std::thread;
 use std::time::Duration;
-use std::{net::TcpStream, vec};
 
-pub struct TCP_Client {
+pub struct TcpClient {
     route: String,
     stream: Option<TcpStream>,
     pub h: f64,
@@ -14,9 +14,9 @@ pub struct TCP_Client {
     pub timestamp: u64,
 }
 
-impl TCP_Client {
+impl TcpClient {
     pub fn new(route: String, h: f64, k: f64, phi: f64, mic_dis: f64) -> Self {
-        let mut client = TCP_Client {
+        let mut client = TcpClient {
             route,
             stream: None,
             h,
@@ -123,7 +123,6 @@ pub fn filter_with_cfar(
         .collect()
 }
 
-/// Version that works with f32 for better performance when precision requirements are lower
 pub fn angle_wrap_f32(angle: f32) -> f32 {
     use std::f32::consts::PI;
 

@@ -1,8 +1,4 @@
-use cpal::BufferSize;
-use cpal::Device;
-use cpal::StreamInstant;
-
-use cpal::{traits::DeviceTrait, traits::HostTrait};
+use cpal::{Device, traits::DeviceTrait, traits::HostTrait};
 use rustfft::num_complex::Complex32;
 use std::sync::mpsc::{self, Receiver};
 
@@ -11,16 +7,11 @@ pub struct StreamEncapsulate {
     pub left_rx: Receiver<Vec<Complex32>>,
     pub right_rx: Receiver<Vec<Complex32>>,
     pub samples_per_sec: u32,
-    instant: StreamInstant,
 }
 
 impl StreamEncapsulate {
     pub fn new(device_name: &str) -> Self {
         let host = cpal::default_host();
-
-        // for input in host.input_devices() {
-
-        // }
 
         let mut input: Vec<Device> = host
             .input_devices()
@@ -42,7 +33,7 @@ impl StreamEncapsulate {
         //     dbg!(config);
         // }
 
-        let mut config = input
+        let config = input
             .default_input_config()
             .expect("No Default Input Configuration")
             .config();
@@ -63,7 +54,7 @@ impl StreamEncapsulate {
         let stream = input
             .build_input_stream(
                 &config,
-                move |x: &[f32], a: &cpal::InputCallbackInfo| {
+                move |x: &[f32], _a: &cpal::InputCallbackInfo| {
                     // runs in another thread
                     let even_left: Vec<Complex32> =
                         x.iter().step_by(2).map(|x| Complex32::from(x)).collect();
@@ -76,23 +67,20 @@ impl StreamEncapsulate {
 
                     // println!(
                     //     "ADC: {}\nCal: {}",
-                    //     a.timestamp()
+                    //     _a.timestamp()
                     //         .capture
                     //         .duration_since(&StreamInstant::new(0, 0))
                     //         .unwrap(),
-                    //     a.timestamp()
+                    //     _a.timestamp()
                     //         .callback
                     //         .duration_since(&StreamInstant::new(0, 0))
                     //         .unwrap()
                     // );
 
-                    // dbg!(&a);
+                    // dbg!(&_a);
 
                     // drop data if the FFT is not fast enough in reciever
-                    let len = even_left.len();
                     if let Ok(_) = tx_left.try_send(even_left) {}
-
-                    let len = odd_right.len();
                     if let Ok(_) = tx_right.try_send(odd_right) {}
                 },
                 |err| {
@@ -109,7 +97,6 @@ impl StreamEncapsulate {
             left_rx: rx_left,
             right_rx: rx_right,
             samples_per_sec,
-            instant: StreamInstant::new(0, 0),
         }
     }
 }
