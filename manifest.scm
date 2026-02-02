@@ -15,7 +15,6 @@
 		     xdisorg
 		     xml)
 
-
 (define vdf-packages  (list
 		       ;; Rust stuff
  		       rust
